@@ -1,0 +1,38 @@
+import vm from 'node:vm';
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const root=new URL('../',import.meta.url);
+const sandbox={window:{}};
+vm.runInNewContext(fs.readFileSync(new URL('data/projects.js',root),'utf8'),sandbox);
+const original=JSON.parse(JSON.stringify(sandbox.window.PORTFOLIO));
+const code=fs.readFileSync(new URL('js/portfolio.js',root),'utf8');
+function render(data,page,query='') {
+ const main={innerHTML:'',classList:{add(){}},insertAdjacentHTML(position,html){this.innerHTML+=html;}};
+ const header={innerHTML:''};const meta={content:''};
+ const document={body:{dataset:{page}},querySelector(selector){return selector==='#content'?main:selector==='#site-header'?header:meta;}};
+ vm.runInNewContext(code,{window:{PORTFOLIO:data},document,location:{search:query},URLSearchParams,Date});
+ return {body:main.innerHTML,header:header.innerHTML,title:document.title};
+}
+assert.equal((render(original,'home').body.match(/class="gallery-item /g)||[]).length,7);
+assert.match(render(original,'project','?id=doppelganger').body,/data-fullsize=/);
+assert.match(render(original,'project','?id=doppelganger').body,/<video controls/);
+assert.match(render(original,'project','?id=missing').body,/Project not found/);
+assert.match(render(original,'category','?id=missing').body,/Category not found/);
+const data=structuredClone(original);
+data.site.categories.push({id:'test-category',title:'Custom category'});
+data.projects.push({id:'new-project',title:'A <new> project',description:'Test',subtitle:'Study',published:true,categories:['test-category'],media:[{id:'new-art',type:'image',src:'assets/new.webp',alt:'New art',homeOrder:99,layout:'full'}]});
+let output=render(data,'category','?id=test-category');
+assert.match(output.header,/category.html\?id=test-category/);
+assert.match(output.body,/assets\/new.webp/);
+assert.match(output.body,/A &lt;new&gt; project/);
+assert.match(render(data,'home').body,/assets\/new.webp/);
+data.projects.at(-1).media[0].categories=[];
+assert.doesNotMatch(render(data,'category','?id=test-category').body,/assets\/new.webp/);
+assert.match(render(data,'project','?id=new-project').body,/assets\/new.webp/);
+data.projects.at(-1).published=false;
+assert.doesNotMatch(render(data,'home').body,/assets\/new.webp/);
+assert.doesNotMatch(render(data,'home').header,/project.html\?id=new-project/);
+assert.match(render(data,'project','?id=new-project').body,/Project not found/);
+const single=structuredClone(original);single.projects=single.projects.slice(0,1);
+assert.match(render(single,'project','?id=doppelganger').body,/All work/);
+console.log('Passed renderer checks: category assignment/inheritance, new projects/categories, homepage selection, hidden projects, safe text, invalid IDs and project media.');
