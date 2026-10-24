@@ -94,8 +94,19 @@ summary:focus-visible {
   margin: 0 0 18px 1px;
 }
 .brand-symbol img {
+  position: static;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left center;
+}
+/* Only the original collage asset needs an extraction crop. */
+.brand-symbol img[src$="/art-6.webp"] {
   position: absolute;
   width: 450px;
+  height: auto;
   max-width: none;
   left: -301px;
   top: -14px;
@@ -588,7 +599,7 @@ body.lightbox-open {
     height: 85px;
     margin: 0;
   }
-  .brand-symbol img {
+  .brand-symbol img[src$="/art-6.webp"] {
     width: 235px;
     left: -157px;
     top: -7px;
